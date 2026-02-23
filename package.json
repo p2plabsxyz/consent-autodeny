@@ -1,11 +1,11 @@
 {
-  "name": "extension-consent-autodeny",
+  "name": "consent-autodeny",
   "version": "1.0.0",
   "description": "A browser extension that tries to auto-deny GDPR consent popups for you",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AgregoreWeb/extension-consent-autodeny"
+    "url": "https://github.com/p2plabsxyz/Consent-O-Matic/"
   },
   "scripts": {
     "build-firefox": "webpack --env target=firefox",
