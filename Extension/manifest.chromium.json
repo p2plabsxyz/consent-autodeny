@@ -1,5 +1,5 @@
 {
-	"name": "Consent Autoblock",
+	"name": "Consent Autodeny",
 	"description": "Automatic blocking of GDPR consent forms",
 	"author": "CAVI - Aarhus University, forked by p2plabsxyz",
 	"homepage_url": "https://github.com/p2plabsxyz/extension-consent-autodeny",
