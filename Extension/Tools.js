@@ -9,6 +9,87 @@ export default class Tools {
         return Tools.base;
     }
 
+    // While the engine looks for a CMP it asks the same couple of hundred
+    // selectors every half second. Once a page has settled the answers stay
+    // the same, so they are kept until a mutation says something changed.
+    static startWatching() {
+        if (Tools.watcher != null) {
+            return;
+        }
+
+        let watcher = {
+            documentAnswers: new Map()
+        };
+        watcher.observer = new MutationObserver((records) => {
+            Tools.noteMutations(records);
+        });
+        watcher.observer.observe(document, {
+            childList: true,
+            attributes: true,
+            characterData: true,
+            subtree: true
+        });
+        Tools.watcher = watcher;
+    }
+
+    static stopWatching() {
+        if (Tools.watcher != null) {
+            Tools.watcher.observer.disconnect();
+            Tools.watcher = null;
+        }
+    }
+
+    static noteMutations(records) {
+        if (Tools.watcher != null && records.length > 0) {
+            Tools.watcher.documentAnswers.clear();
+        }
+    }
+
+    // Runs one detection pass. Mutations not yet delivered are taken first,
+    // so an answer is never reused after the page changed.
+    static duringPass(callback) {
+        if (Tools.watcher != null) {
+            Tools.noteMutations(Tools.watcher.observer.takeRecords());
+        }
+
+        Tools.inPass = true;
+        try {
+            return callback();
+        } finally {
+            Tools.inPass = false;
+        }
+    }
+
+    // document.querySelectorAll(selector), from an earlier pass when nothing
+    // changed since. Filters still run on every call. A selector whose
+    // matches can change without a mutation (:hover, :checked) is always
+    // asked again.
+    static queryDocument(selector) {
+        let watcher = Tools.watcher;
+        if (!Tools.inPass || watcher == null || !Tools.isStructural(selector)) {
+            return Array.from(document.querySelectorAll(selector));
+        }
+
+        let answer = watcher.documentAnswers.get(selector);
+        if (answer == null) {
+            answer = Array.from(document.querySelectorAll(selector));
+            watcher.documentAnswers.set(selector, answer);
+        }
+        return answer.slice();
+    }
+
+    static isStructural(selector) {
+        let structural = Tools.structuralSelectors.get(selector);
+        if (structural == null) {
+            let bare = selector.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, "").replace(/\[[^\]]*\]/g, "");
+            structural = (bare.match(/:[\w-]+/g) || []).every((pseudo) => {
+                return Tools.structuralPseudoClasses.has(pseudo.toLowerCase());
+            });
+            Tools.structuralSelectors.set(selector, structural);
+        }
+        return structural;
+    }
+
     static findElement(options, parent = null, multiple = false) {
         let possibleTargets = null;
 
@@ -45,7 +126,11 @@ export default class Tools {
             } else if (top instanceof HTMLElement && chrome && chrome.dom && chrome.dom.openOrClosedShadowRoot(top)){ // Chromium
     	        top = chrome.dom.openOrClosedShadowRoot(top);
             }
-            possibleTargets = Array.from(top.querySelectorAll(options.selector));
+            if (top === document) {
+                possibleTargets = Tools.queryDocument(options.selector);
+            } else {
+                possibleTargets = Array.from(top.querySelectorAll(options.selector));
+            }
         }
 
         const clonedPossibleTargets = possibleTargets.slice();
@@ -235,3 +320,14 @@ export default class Tools {
 }
 
 Tools.base = null;
+Tools.watcher = null;
+Tools.inPass = false;
+Tools.structuralSelectors = new Map();
+// Pseudo-classes that depend only on the DOM tree, so a mutation shows when
+// their matches change.
+Tools.structuralPseudoClasses = new Set([
+    ":not", ":is", ":where", ":has", ":root", ":scope", ":empty",
+    ":first-child", ":last-child", ":only-child",
+    ":first-of-type", ":last-of-type", ":only-of-type",
+    ":nth-child", ":nth-last-child", ":nth-of-type", ":nth-last-of-type"
+]);

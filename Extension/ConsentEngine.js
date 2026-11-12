@@ -1,4 +1,5 @@
 import CMP from "./CMP.js";
+import Tools from "./Tools.js";
 
 export default class ConsentEngine {
     constructor(config, consentTypes, handledCallback) {
@@ -460,15 +461,19 @@ export default class ConsentEngine {
                 subtree: true
             });
         }
+        Tools.startWatching();
     }
 
     stopObserver() {
         this.observer.disconnect();
+        Tools.stopWatching();
     }
 
     findCMP() {
-        return this.cmps.filter((cmp) => {
-            return cmp.detect();
+        return Tools.duringPass(() => {
+            return this.cmps.filter((cmp) => {
+                return cmp.detect();
+            });
         });
     }
 }
