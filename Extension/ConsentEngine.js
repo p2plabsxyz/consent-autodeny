@@ -1,4 +1,5 @@
 import CMP from "./CMP.js";
+import Tools from "./Tools.js";
 
 export default class ConsentEngine {
     constructor(config, consentTypes, handledCallback) {
@@ -34,6 +35,17 @@ export default class ConsentEngine {
                 return 0;
             }
         })
+
+        // What each detection pass asks the document first, so shadow roots
+        // can be asked about all of it at once
+        Tools.addKnownSelectors(this.cmps.flatMap((cmp) => {
+            return cmp.detectors.flatMap((detector) => {
+                return detector.presentMatchers.map((matcher) => {
+                    let first = matcher.config.parent || matcher.config.target;
+                    return first != null ? first.selector : null;
+                });
+            });
+        }));
 
         this.setupObserver();
         this.startObserver();
@@ -460,15 +472,19 @@ export default class ConsentEngine {
                 subtree: true
             });
         }
+        Tools.startWatching();
     }
 
     stopObserver() {
         this.observer.disconnect();
+        Tools.stopWatching();
     }
 
     findCMP() {
-        return this.cmps.filter((cmp) => {
-            return cmp.detect();
+        return Tools.duringPass(() => {
+            return this.cmps.filter((cmp) => {
+                return cmp.detect();
+            });
         });
     }
 }

@@ -1,6 +1,6 @@
 {
   "name": "consent-autodeny",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A browser extension that tries to auto-deny GDPR consent popups for you",
   "license": "MIT",
   "repository": {
